@@ -1,0 +1,9 @@
+node_modules/
+dist-chrome/
+dist-firefox/
+dist-tsc/
+release/
+.yarn/
+*.log
+*.zip
+.DS_Store

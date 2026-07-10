@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Git Patch Viewer — demo</title></head>
+<body>
+<pre id="src"></pre>
+<script id="patch" type="text/plain">From a07be73315ab99e4e7f53f431b07d4caa728a302 Mon Sep 17 00:00:00 2001
+From: Artur Minchukou <aminchukov@victoriametrics.com>
+Date: Fri, 10 Jul 2026 11:15:08 +0400
+Subject: [PATCH] fix(raw logs): restore the `_stream` label in log query
+ results (#685)
+
+The backend deleted the `_stream` field from every parsed log row
+before building the labels JSON, so the stream selector was hidden
+from the log line labels in Grafana, e.g., query `* | field_values _stream`
+returns an empty result. The value survived only in `meta.custom.streams`,
+which is consumed by the "Show context" UI.
+
+Keep `_stream` in the row labels and only read it (without deleting)
+to build the per-row stream map for meta.custom.
+---
+ CHANGELOG.md                     |   1 +
+ pkg/plugin/datasource_test.go    |  14 +-
+ pkg/plugin/response_logs.go      | 293 +++++++++++++------------------
+ pkg/plugin/response_logs_test.go |  59 +++----
+ 4 files changed, 159 insertions(+), 208 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index bb937fe4..64e2b58e 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -5,6 +5,7 @@
+ * FEATURE: add a `:` (word filter) operator to Log Level Rules, matching a field value by whole word like LogsQL (e.g. `error` matches the word `error`, not `terror`). See [#611](https://github.com/VictoriaMetrics/victorialogs-datasource/issues/611).
+ * FEATURE: the visual query builder now shows context-aware keyboard hints at the bottom of its dropdowns, so the available shortcuts (select, navigate, confirm, run) are visible while you build a query. See [pr #683](https://github.com/VictoriaMetrics/victorialogs-datasource/pull/683).
+
++* BUGFIX: restore the `_stream` label in log query results. Previously, it was hidden from the log line labels. See [pr #685](https://github.com/VictoriaMetrics/victorialogs-datasource/pull/685).
+ * BUGFIX: live tailing now picks up query changes immediately. Previously, editing the query expression while live logs were streaming kept showing results for the previous query until the page was reloaded.
+
+ ## v0.29.0
+diff --git a/pkg/plugin/datasource_test.go b/pkg/plugin/datasource_test.go
+index db711178..5436d961 100644
+--- a/pkg/plugin/datasource_test.go
++++ b/pkg/plugin/datasource_test.go
+@@ -194,7 +194,7 @@ func TestDatasourceQueryRequest(t *testing.T) {
+ 		}
+ 		timeFd.Append(ts)
+
+-		labelsField.Append(json.RawMessage(`{}`))
++		labelsField.Append(json.RawMessage(`{"_stream":"{application=\"logs-benchmark-Apache.log-1708437847\",hostname=\"e28a622d7792\"}"}`))
+ 		idField := data.NewFieldFromFieldType(data.FieldTypeString, 0)
+ 		idField.Name = gIDField
+ 		idField.Append(buildLogID(
+@@ -206,6 +206,7 @@ func TestDatasourceQueryRequest(t *testing.T) {
+
+ 		rsp := backend.DataResponse{}
+ 		frame.Meta = &data.FrameMeta{
++			PreferredVisualization: logsVisualisation,
+ 			Custom: map[string]any{
+ 				"streamIds": []string{""},
+ 				"streams":   []map[string]string{{"application": "logs-benchmark-Apache.log-1708437847", "hostname": "e28a622d7792"}},
+diff --git a/pkg/plugin/response_logs.go b/pkg/plugin/response_logs.go
+index fda6a769..697aa06b 100644
+--- a/pkg/plugin/response_logs.go
++++ b/pkg/plugin/response_logs.go
+@@ -34,8 +34,6 @@ func buildLogID(ts, msg, streamId []byte) string {
+ 	return strconv.FormatUint(h.Sum64(), 16)
+ }
+
+-var nowFunc = time.Now
+-
+ // streamFieldsToMap turns the parsed `_stream` fields into a label->value map
+ // for meta.custom.streams, consumed by the "Show context" stream label selector
+ func streamFieldsToMap(stf []utils.StreamField) map[string]string {
+@@ -46,10 +44,31 @@ func streamFieldsToMap(stf []utils.StreamField) map[string]string {
+ 	return m
+ }
+
+-// parseStreamResponse reads data from the reader and collects
+-// fields and frame with necessary information
+-func parseInstantResponse(reader io.Reader) backend.DataResponse {
++type logRow struct {
++	Time     time.Time
++	Line     string
++	ID       string
++	Labels   json.RawMessage
++	StreamID string
++	Stream   map[string]string
++}
+
++// newLogFrame creates a new frame with the necessary fields
++func newLogFrame() *logFrame {
+ 	labelsField := data.NewFieldFromFieldType(data.FieldTypeJSON, 0)
+ 	labelsField.Name = gLabelsField
+
+diff --git a/pkg/plugin/response_logs_test.go b/pkg/plugin/response_logs_test.go
+index 0391ea5f..bdffbe6d 100644
+--- a/pkg/plugin/response_logs_test.go
++++ b/pkg/plugin/response_logs_test.go
+@@ -74,14 +74,6 @@ func Test_buildLogID(t *testing.T) {
+ }
+
+ func Test_parseInstantResponse(t *testing.T) {
+-	now := time.Now()
+-	nowFunc = func() time.Time {
+-		return now
+-	}
+-	defer func() {
+-		nowFunc = time.Now
+-	}()
+-
+ 	// mustTime parses a raw _time string the same way production does.
+ 	getTimeType := func(s string) time.Time {
+ 		tt, err := utils.GetTime(s)
+</script>
+<script>
+  document.getElementById("src").textContent = document.getElementById("patch").textContent;
+</script>
+<script src="../dist-chrome/content.js"></script>
+</body>
+</html>

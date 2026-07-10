@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test
+
+      - name: Build
+        run: yarn build
+
+      # Runs the same validator AMO uses. Fails on errors; warnings are allowed.
+      - name: Lint web extension (Firefox / AMO)
+        run: npx --yes web-ext@latest lint --source-dir dist-firefox --output text
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-builds
+          path: |
+            dist-chrome
+            dist-firefox
+          if-no-files-found: error

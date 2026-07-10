@@ -1,0 +1,11 @@
+{
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "git-patch-viewer@arturminchukov",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}

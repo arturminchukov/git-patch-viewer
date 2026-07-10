@@ -7,3 +7,4 @@ release/
 *.log
 *.zip
 .DS_Store
+docs/superpowers/

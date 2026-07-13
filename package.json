@@ -10,6 +10,7 @@
     "build": "node build.mjs",
     "package": "node build.mjs && node scripts/package.mjs",
     "package:source": "node scripts/package-source.mjs",
+    "sign:firefox": "node build.mjs && node scripts/sign-firefox.mjs",
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

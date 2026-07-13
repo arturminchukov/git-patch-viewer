@@ -106,6 +106,20 @@ these repository secrets are set (steps are skipped otherwise):
 The Firefox add-on id is `git-patch-viewer@arturminchukov` (see
 `manifest/firefox.json`).
 
+### Signed .xpi for self-distribution (Firefox)
+
+Produce a Mozilla-signed `.xpi` (installable by clicking, without a public AMO
+listing) via the `unlisted` channel:
+
+```sh
+export AMO_JWT_ISSUER="user:123456:78"   # AMO -> Manage API Keys
+export AMO_JWT_SECRET="<secret>"
+yarn sign:firefox                        # builds + signs -> web-ext-artifacts/*.xpi
+```
+
+Set `AMO_CHANNEL=listed` to submit to the public AMO listing instead. Each sign
+needs a new `version` (bump it, or build with `GPV_VERSION`).
+
 ### Build instructions for AMO reviewers
 
 This add-on's content script (`dist-firefox/content.js`) is **bundled from

@@ -3,6 +3,7 @@ dist-chrome/
 dist-firefox/
 dist-tsc/
 release/
+web-ext-artifacts/
 .yarn/
 *.log
 *.zip

@@ -64,7 +64,7 @@ export function renderSidebar(files: PatchFile[], options: SidebarOptions = {}):
   const scrollToTarget = (id: string | undefined) => {
     if (!id) return;
     const target = (element.getRootNode() as ParentNode).querySelector<HTMLElement>(`#${id}`);
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target?.scrollIntoView({ behavior: 'instant', block: 'start' });
     setActive(id);
   };
 

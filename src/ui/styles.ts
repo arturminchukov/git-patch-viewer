@@ -157,7 +157,6 @@ export const STYLES = /* css */ `
 .gpv-content {
   overflow-y: auto;
   padding: 16px;
-  scroll-behavior: smooth;
 }
 
 /* Sidebar */

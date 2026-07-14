@@ -8,7 +8,9 @@ import { renderSidebar } from './sidebar';
 const model = parse(readFileSync(join(process.cwd(), 'demo/sample.patch'), 'utf8'));
 
 function visibleItems(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>('.gpv-file-item')).filter((i) => !i.hidden);
+  return Array.from(root.querySelectorAll<HTMLElement>('.gpv-file-item')).filter(
+    (i) => !i.classList.contains('gpv-hidden'),
+  );
 }
 
 describe('renderSidebar', () => {
@@ -62,6 +64,6 @@ describe('renderSidebar', () => {
     const pkgDir = Array.from(el.querySelectorAll<HTMLElement>('.gpv-tree-dir')).find(
       (d) => d.querySelector('.gpv-tree-summary')?.textContent === 'pkg/plugin',
     )!;
-    expect(pkgDir.hidden).toBe(true);
+    expect(pkgDir.classList.contains('gpv-hidden')).toBe(true);
   });
 });

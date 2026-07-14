@@ -61,9 +61,16 @@ export function renderSidebar(files: PatchFile[], options: SidebarOptions = {}):
     }
   };
 
+  // After a click, the last (small) files may not scroll all the way to the top,
+  // so scroll-spy would immediately re-highlight an earlier file. Pause it
+  // briefly so the clicked file stays active until the user scrolls manually.
+  const SPY_PAUSE_MS = 300;
+  let spyPausedUntil = 0;
+
   const scrollToTarget = (id: string | undefined) => {
     if (!id) return;
     const target = (element.getRootNode() as ParentNode).querySelector<HTMLElement>(`#${id}`);
+    spyPausedUntil = performance.now() + SPY_PAUSE_MS;
     target?.scrollIntoView({ behavior: 'instant', block: 'start' });
     setActive(id);
   };
@@ -120,12 +127,13 @@ export function renderSidebar(files: PatchFile[], options: SidebarOptions = {}):
     let anyVisible = false;
     for (const item of items) {
       const match = q === '' || (item.dataset.path ?? '').includes(q);
-      item.hidden = !match;
+      item.classList.toggle('gpv-hidden', !match);
       anyVisible = anyVisible || match;
     }
     // In tree mode, hide directories that have no visible descendant file.
     for (const dir of listHost.querySelectorAll<HTMLElement>('.gpv-tree-dir')) {
-      dir.hidden = dir.querySelector('.gpv-file-item:not([hidden])') === null;
+      const hasVisible = dir.querySelector('.gpv-file-item:not(.gpv-hidden)') !== null;
+      dir.classList.toggle('gpv-hidden', !hasVisible);
     }
     emptyMsg.hidden = anyVisible;
   }
@@ -169,6 +177,8 @@ export function renderSidebar(files: PatchFile[], options: SidebarOptions = {}):
     observer?.disconnect();
     observer = new IntersectionObserver(
       (entries) => {
+        // Ignore the intersection changes triggered by a click's scroll.
+        if (performance.now() < spyPausedUntil) return;
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);

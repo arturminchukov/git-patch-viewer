@@ -203,6 +203,8 @@ export const STYLES = /* css */ `
   color: var(--text-muted);
   list-style: none;
   user-select: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 28px;
 }
 .gpv-tree-summary:hover { background: var(--bg); }
 .gpv-tree-summary::-webkit-details-marker { display: none; }
@@ -226,9 +228,17 @@ export const STYLES = /* css */ `
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  /* Skip layout/paint of off-screen rows so large trees expand cheaply. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 30px;
 }
 .gpv-file-item:hover { background: var(--bg); }
 .gpv-file-item.active { background: var(--bg); outline: 1px solid var(--accent); }
+/* Filtered-out rows/dirs. Compound selector outranks the display rules above,
+   so it hides deterministically (the [hidden] attribute would be defeated by
+   the author display rule). */
+.gpv-file-item.gpv-hidden,
+.gpv-tree-dir.gpv-hidden { display: none; }
 .gpv-file-status {
   width: 14px; text-align: center; font-weight: 700; flex: none;
 }

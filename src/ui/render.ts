@@ -34,10 +34,18 @@ export function statusSymbol(status: FileStatus): string {
   return STATUS_SYMBOL[status];
 }
 
-/** Render all file cards into a fragment. */
-export function renderFiles(files: PatchFile[], mode: ViewMode = 'split'): DocumentFragment {
+/**
+ * Render all file cards into a fragment, in `order` (defaults to file order).
+ * Section ids stay tied to the original file index so sidebar links keep
+ * working regardless of the visual order.
+ */
+export function renderFiles(
+  files: PatchFile[],
+  mode: ViewMode = 'split',
+  order: number[] = files.map((_, i) => i),
+): DocumentFragment {
   const frag = document.createDocumentFragment();
-  files.forEach((file, i) => frag.append(renderFile(file, i, mode)));
+  for (const i of order) frag.append(renderFile(files[i], i, mode));
   return frag;
 }
 

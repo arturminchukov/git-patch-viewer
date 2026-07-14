@@ -21,6 +21,19 @@ describe('renderFiles — DOM smoke test', () => {
     expect(host.querySelector(`#gpv-file-${model.files.length - 1}`)).not.toBeNull();
   });
 
+  it('renders sections in the given order, keeping ids tied to file index', () => {
+    const n = model.files.length;
+    const reversed = model.files.map((_, i) => n - 1 - i);
+    const frag = renderFiles(model.files, 'split', reversed);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    const ids = Array.from(host.querySelectorAll('.gpv-file')).map((s) => s.id);
+    // Visual order follows `reversed`; ids still map to original file indices.
+    expect(ids).toEqual(reversed.map((i) => `gpv-file-${i}`));
+    expect(ids[0]).toBe(`gpv-file-${n - 1}`);
+  });
+
   it('lays out four grid cells (old#, left, new#, right) per row', () => {
     const frag = renderFiles(model.files.slice(0, 1));
     const host = document.createElement('div');

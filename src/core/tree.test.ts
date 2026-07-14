@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFileTree, type DirNode, type FileLeaf } from './tree';
+import { buildFileTree, flattenTree, type DirNode, type FileLeaf } from './tree';
 
 describe('buildFileTree', () => {
   it('groups files by directory', () => {
@@ -32,5 +32,18 @@ describe('buildFileTree', () => {
     expect(dir.name).toBe('a/b');
     const leaf = dir.children[0] as FileLeaf;
     expect(leaf).toMatchObject({ type: 'file', name: 'c.txt', path: 'a/b/c.txt', index: 7 });
+  });
+});
+
+describe('flattenTree', () => {
+  it('returns leaf indices in depth-first, directories-first order', () => {
+    // Patch order: src/b.ts(0), README.md(1), src/a.ts(2)
+    const tree = buildFileTree([
+      { path: 'src/b.ts', index: 0 },
+      { path: 'README.md', index: 1 },
+      { path: 'src/a.ts', index: 2 },
+    ]);
+    // Tree order: dir "src" first (a.ts=2, b.ts=0 alphabetical), then README.md=1.
+    expect(flattenTree(tree)).toEqual([2, 0, 1]);
   });
 });

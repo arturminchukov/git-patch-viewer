@@ -63,6 +63,16 @@ function toEntries(dir: MutableDir): TreeEntry[] {
   return [...dirNodes, ...fileNodes];
 }
 
+/** File indices in depth-first order, matching how the tree is rendered. */
+export function flattenTree(entries: TreeEntry[]): number[] {
+  const order: number[] = [];
+  for (const entry of entries) {
+    if (entry.type === 'file') order.push(entry.index);
+    else order.push(...flattenTree(entry.children));
+  }
+  return order;
+}
+
 /** Merge a directory that holds exactly one sub-directory into a single node. */
 function collapse(node: DirNode): DirNode {
   let current = node;

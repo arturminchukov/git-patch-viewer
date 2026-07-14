@@ -1,6 +1,6 @@
 {
   "name": "git-patch-viewer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser extension that renders git patches as a beautiful side-by-side diff",
   "type": "module",
   "private": true,

@@ -4,8 +4,9 @@
 import { parse } from '../core/parser';
 import type { CommitMeta, PatchModel } from '../core/types';
 import { el } from '../ui/dom';
+import { fileOrder } from '../ui/file-order';
 import { renderFiles } from '../ui/render';
-import { renderSidebar, type FileLayout, type SidebarHandle } from '../ui/sidebar';
+import { renderSidebar, type FileLayout } from '../ui/sidebar';
 import { browserStorage, type PersistentValue } from '../ui/storage';
 import { STYLES } from '../ui/styles';
 import {
@@ -22,46 +23,75 @@ import {
   type ViewMode,
 } from '../ui/view';
 import { looksLikeDiff } from './detect';
+import { showLoader } from './loader';
+
+/** Resolve once the document body is parsed and readable. */
+function domReady(): Promise<void> {
+  if (document.readyState !== 'loading') return Promise.resolve();
+  return new Promise((resolve) => {
+    document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+  });
+}
 
 async function run(): Promise<void> {
-  const raw = document.body?.innerText ?? '';
-  if (!looksLikeDiff(raw)) return;
-
-  const model = parse(raw);
-  if (model.files.length === 0) return;
-
-  const host = el('div', { id: 'git-patch-viewer-host' });
-  const shadow = host.attachShadow({ mode: 'open' });
-  shadow.append(el('style', { text: STYLES }));
-
-  const root = el('div', { class: 'gpv-root' });
-  shadow.append(root);
-
-  const themeStorage = browserThemeStorage();
-  const viewStorage = browserViewStorage();
-  const layoutStorage = browserStorage<FileLayout>('gpv-filelayout', ['flat', 'tree']);
-  const theme = await resolveInitialTheme(themeStorage);
-  const view = await resolveInitialView(viewStorage);
-  const layout = (await layoutStorage.get()) ?? 'flat';
-  applyTheme(root, theme);
+  // Runs at document_start: hide the raw text and show a loader before the
+  // browser can flash the unstyled patch, then parse once the DOM is ready.
+  const reveal = showLoader();
 
   try {
-    mount(root, model, { theme, themeStorage, view, viewStorage, layout, layoutStorage });
-  } catch (err) {
-    root.append(
-      el('div', {
-        class: 'gpv-error',
-        text: `Failed to render patch: ${err instanceof Error ? err.message : String(err)}`,
-      }),
-    );
-  }
+    await domReady();
 
-  // Replace the visible page and prevent the outer document from scrolling;
-  // scrolling happens inside the content pane only.
-  document.documentElement.style.cssText = 'margin:0;height:100%;overflow:hidden';
-  document.body.style.cssText = 'margin:0;height:100%;overflow:hidden';
-  document.body.replaceChildren(host);
-  document.title = titleFor(model);
+    // textContent (not innerText) so it reads correctly while the body is hidden.
+    const raw = document.body?.textContent ?? '';
+    if (!looksLikeDiff(raw)) {
+      reveal();
+      return;
+    }
+
+    const model = parse(raw);
+    if (model.files.length === 0) {
+      reveal();
+      return;
+    }
+
+    const host = el('div', { id: 'git-patch-viewer-host' });
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.append(el('style', { text: STYLES }));
+
+    const root = el('div', { class: 'gpv-root' });
+    shadow.append(root);
+
+    const themeStorage = browserThemeStorage();
+    const viewStorage = browserViewStorage();
+    const layoutStorage = browserStorage<FileLayout>('gpv-filelayout', ['flat', 'tree']);
+    const theme = await resolveInitialTheme(themeStorage);
+    const view = await resolveInitialView(viewStorage);
+    const layout = (await layoutStorage.get()) ?? 'flat';
+    applyTheme(root, theme);
+
+    try {
+      mount(root, model, { theme, themeStorage, view, viewStorage, layout, layoutStorage });
+    } catch (err) {
+      root.append(
+        el('div', {
+          class: 'gpv-error',
+          text: `Failed to render patch: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
+    }
+
+    // Replace the visible page and prevent the outer document from scrolling;
+    // scrolling happens inside the content pane only.
+    document.documentElement.style.cssText = 'margin:0;height:100%;overflow:hidden';
+    document.body.style.cssText = 'margin:0;height:100%;overflow:hidden';
+    document.body.replaceChildren(host);
+    document.title = titleFor(model);
+    reveal();
+  } catch (err) {
+    // Never leave the page hidden if something unexpected fails.
+    reveal();
+    console.error('[git-patch-viewer]', err);
+  }
 }
 
 interface MountOptions {
@@ -85,39 +115,40 @@ function mount(root: HTMLElement, model: PatchModel, opts: MountOptions): void {
     themeBtn,
   ]);
 
+  let view = opts.view;
+  let layout = opts.layout;
+  const content = el('div', { class: 'gpv-content' });
+
+  // Render the diff sections in the same order the sidebar lists them (flat =
+  // patch order, tree = tree order), so a file's position matches its diff.
+  // `sidebar` is referenced here but assigned just below; repaint only runs
+  // after it exists.
+  const repaint = () => {
+    const order = fileOrder(model.files, layout);
+    content.replaceChildren(renderFiles(model.files, view, order));
+    sidebar.connect(content);
+  };
+
   const sidebar = renderSidebar(model.files, {
-    initialLayout: opts.layout,
-    onLayoutChange: (l) => void opts.layoutStorage.set(l),
+    initialLayout: layout,
+    onLayoutChange: (l) => {
+      layout = l;
+      void opts.layoutStorage.set(l);
+      repaint();
+    },
   });
-  const content = renderContent(model, sidebar, opts.view);
 
-  const body = el('div', { class: 'gpv-body' }, [sidebar.element, content.element]);
+  attachViewToggle(viewBtn, opts.viewStorage, view, (mode) => {
+    view = mode;
+    repaint();
+  });
 
+  const body = el('div', { class: 'gpv-body' }, [sidebar.element, content]);
   root.append(toolbar);
   if (model.commit) root.append(renderCommitPanel(model.commit));
   root.append(body);
 
-  attachViewToggle(viewBtn, opts.viewStorage, opts.view, (mode) => content.setMode(mode));
-}
-
-interface ContentHandle {
-  element: HTMLElement;
-  setMode(mode: ViewMode): void;
-}
-
-/** The scrollable diff pane; re-renders in place when the view mode changes. */
-function renderContent(
-  model: PatchModel,
-  sidebar: SidebarHandle,
-  initial: ViewMode,
-): ContentHandle {
-  const element = el('div', { class: 'gpv-content' });
-  const paint = (mode: ViewMode) => {
-    element.replaceChildren(renderFiles(model.files, mode));
-    sidebar.connect(element);
-  };
-  paint(initial);
-  return { element, setMode: paint };
+  repaint();
 }
 
 function renderCommitPanel(commit: CommitMeta): HTMLElement {

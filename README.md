@@ -2,9 +2,13 @@
 
 <!-- Update the owner/repo slug if you push under a different name. -->
 [![CI](https://github.com/arturminchukov/git-patch-viewer/actions/workflows/ci.yml/badge.svg)](https://github.com/arturminchukov/git-patch-viewer/actions/workflows/ci.yml)
+[![Firefox users](https://img.shields.io/amo/users/git-patch-view?label=Firefox%20users)](https://addons.mozilla.org/firefox/addon/git-patch-view/)
+[![Chrome users](https://img.shields.io/chrome-web-store/users/bbogdjfphogidkeapadommbflgdmpldp?label=Chrome%20users)](https://chromewebstore.google.com/detail/bbogdjfphogidkeapadommbflgdmpldp)
 
 Browser extension (Chrome + Firefox, Manifest V3) that automatically renders
 raw git patches / diffs as a beautiful diff view.
+
+**Install:** [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/git-patch-view/) · [Chrome Web Store](https://chromewebstore.google.com/detail/bbogdjfphogidkeapadommbflgdmpldp)
 
 Features:
 

@@ -15,6 +15,8 @@ Features:
 - **Word-level** highlighting of the exact substrings that changed.
 - Commit **subject + collapsible description** panel for `format-patch` input.
 - **Light and dark** themes (follows the OS by default, toggle persisted).
+- Optional **automatic "View patch" button** on GitHub / GitLab commit and
+  PR/MR pages (enable once from the toolbar popup — see below).
 
 ## How it works
 
@@ -22,6 +24,19 @@ When the browser opens any URL ending in `.patch` or `.diff` (GitHub
 `commit/<sha>.patch`, `raw.githubusercontent.com/...diff`, etc.), a content
 script checks that the page really is a diff and, if so, replaces the plain
 text with the rendered UI inside an isolated Shadow DOM.
+
+## "View patch" button on commit / PR pages
+
+Open the toolbar popup and press **Enable**: the browser asks once for access to
+GitHub and GitLab, and from then on a floating **View patch** button appears
+**automatically** on their commit and pull/merge request pages, opening the
+`.patch` URL (rendered by the content script). Disable it again anytime from the
+same popup.
+
+Access to those sites is **optional** — nothing is requested at install time,
+and while disabled the popup still offers a manual "open patch" for the current
+tab (using only `activeTab`). Bitbucket is not supported (its patch is served
+from the REST API at a URL the renderer does not recognize).
 
 ## Architecture
 
@@ -34,11 +49,17 @@ src/
             types.ts    data model
   ui/       render.ts   PatchModel -> DOM nodes
             sidebar.ts  file list + click-to-scroll + scroll-spy
+            file-order.ts  file order per layout (flat/tree) for content
             theme.ts    light/dark, persisted (storage injected)
             styles.ts   themed CSS (Shadow DOM scoped)
             dom.ts      tiny element helper
   content/  detect.ts   is-this-a-diff guard
             main.ts      the only side-effecting module: read -> mount
+  integration/  patch-url.ts     page URL -> raw-patch URL (pure, tested)
+                hosts.ts         optional origins + injection match patterns
+                inject-button.ts floating "View patch" button on host pages
+                background.ts    (un)registers the injector as permission changes
+  popup/    popup.html/.ts       toolbar popup: enable/disable the button
 ```
 
 ## Develop

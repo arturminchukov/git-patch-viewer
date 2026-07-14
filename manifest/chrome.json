@@ -1,3 +1,7 @@
 {
-  "minimum_chrome_version": "110"
+  "minimum_chrome_version": "110",
+  "optional_host_permissions": ["*://github.com/*", "*://gitlab.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  }
 }

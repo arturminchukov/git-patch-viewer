@@ -49,11 +49,16 @@ async function buildTarget(target) {
   await mkdir(outDir, { recursive: true });
 
   const options = {
-    entryPoints: [join(root, 'src/content/main.ts')],
+    entryPoints: {
+      content: join(root, 'src/content/main.ts'),
+      background: join(root, 'src/integration/background.ts'),
+      'inject-button': join(root, 'src/integration/inject-button.ts'),
+      popup: join(root, 'src/popup/popup.ts'),
+    },
     bundle: true,
     format: 'iife',
     target: target.name === 'firefox' ? 'firefox115' : 'chrome110',
-    outfile: join(outDir, 'content.js'),
+    outdir: outDir,
     sourcemap: watch,
     logLevel: 'info',
   };
@@ -67,6 +72,7 @@ async function buildTarget(target) {
 
   await writeManifest(target);
   await copyIcons(target);
+  await cp(join(root, 'src/popup/popup.html'), join(outDir, 'popup.html'));
 }
 
 for (const target of TARGETS) {

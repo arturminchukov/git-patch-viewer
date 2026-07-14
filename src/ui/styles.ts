@@ -139,14 +139,30 @@ export const STYLES = /* css */ `
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text);
+  /* Bound a long description and let it scroll inside its own box, so it never
+     pushes the diff off-screen with no way to read the rest. */
+  max-height: 40vh;
+  overflow-y: auto;
 }
+.gpv-commit-collapse {
+  margin-top: 8px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--accent);
+}
+.gpv-commit-collapse:hover { text-decoration: underline; }
 
 /* Layout */
 .gpv-body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  /* Sidebar width is drag-adjustable via the resizer; the var persists. */
+  grid-template-columns: var(--gpv-sidebar-w, 280px) 5px 1fr;
 }
 .gpv-sidebar {
   border-right: 1px solid var(--border);
@@ -154,6 +170,21 @@ export const STYLES = /* css */ `
   overflow-y: auto;
   padding: 12px;
 }
+.gpv-resizer {
+  cursor: col-resize;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  /* Keep pointer drags from scrolling/selecting on touch devices. */
+  touch-action: none;
+}
+.gpv-resizer:hover,
+.gpv-resizing .gpv-resizer {
+  opacity: 1;
+  background: var(--accent);
+}
+/* While dragging, suppress selection and force the resize cursor everywhere. */
+.gpv-resizing { user-select: none; cursor: col-resize; }
 .gpv-content {
   overflow-y: auto;
   padding: 16px;
@@ -280,7 +311,14 @@ export const STYLES = /* css */ `
 .gpv-file-header .rename { color: var(--text-muted); }
 
 /* Hunk / diff grid */
-.gpv-hunk { border-top: 1px solid var(--border); }
+.gpv-hunk {
+  border-top: 1px solid var(--border);
+  /* Skip layout/paint of off-screen hunks so large diffs scroll cheaply.
+     The auto intrinsic size lets the browser remember each hunk's real height
+     after its first render, so the scrollbar self-corrects. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
 .gpv-hunk:first-child { border-top: none; }
 .gpv-hunk-header {
   padding: 4px 14px;

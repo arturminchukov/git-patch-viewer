@@ -110,8 +110,13 @@ export function alignHunkUnified(hunk: Hunk): UnifiedRow[] {
       continue;
     }
     const { removes, adds } = part;
-    removes.forEach((line, i) => rows.push({ line, segments: pairSegments(removes, adds, i)[0] }));
-    adds.forEach((line, i) => rows.push({ line, segments: pairSegments(removes, adds, i)[1] }));
+    // Compute each pair's word diff once and reuse both sides, rather than
+    // running the LCS twice per pair (once for removes, once for adds).
+    const max = Math.max(removes.length, adds.length);
+    const pairs: [Segment[] | null, Segment[] | null][] = [];
+    for (let i = 0; i < max; i++) pairs.push(pairSegments(removes, adds, i));
+    removes.forEach((line, i) => rows.push({ line, segments: pairs[i][0] }));
+    adds.forEach((line, i) => rows.push({ line, segments: pairs[i][1] }));
   }
   return rows;
 }

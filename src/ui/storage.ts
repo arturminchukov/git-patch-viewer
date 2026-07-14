@@ -25,3 +25,25 @@ export function browserStorage<T extends string>(
     },
   };
 }
+
+/** Persisted number, validated against inclusive bounds (e.g. a pane width). */
+export function browserNumberStorage(
+  key: string,
+  bounds: { min: number; max: number },
+): PersistentValue<number> {
+  const area = globalThis.chrome?.storage?.local;
+  return {
+    async get() {
+      if (!area) return null;
+      const res = await area.get(key);
+      const value = res?.[key];
+      return typeof value === 'number' && value >= bounds.min && value <= bounds.max
+        ? value
+        : null;
+    },
+    async set(value) {
+      if (!area) return;
+      await area.set({ [key]: value });
+    },
+  };
+}

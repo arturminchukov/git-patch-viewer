@@ -49,6 +49,15 @@ export function renderFiles(
   return frag;
 }
 
+/**
+ * Render one section per file, indexed by original file index (not visual
+ * order). Callers order the sections themselves, so a layout switch only has to
+ * reorder existing nodes instead of rebuilding the whole diff.
+ */
+export function renderFileSections(files: PatchFile[], mode: ViewMode = 'split'): HTMLElement[] {
+  return files.map((file, i) => renderFile(file, i, mode));
+}
+
 function renderFile(file: PatchFile, index: number, mode: ViewMode): HTMLElement {
   const header = el('div', { class: 'gpv-file-header' }, [
     el('span', { class: `gpv-file-status ${file.status}`, text: statusSymbol(file.status) }),
@@ -72,14 +81,38 @@ function renderFile(file: PatchFile, index: number, mode: ViewMode): HTMLElement
   return el('section', { class: 'gpv-file', id: fileDomId(index) }, children);
 }
 
+// Alignment (and its word-level LCS) is pure and depends only on the hunk, so
+// memoize per hunk and mode. Switching view/layout then rebuilds DOM without
+// recomputing diffs. Hunk objects are stable for the lifetime of a model.
+const splitCache = new WeakMap<Hunk, SplitRow[]>();
+const unifiedCache = new WeakMap<Hunk, UnifiedRow[]>();
+
+function alignSplitCached(hunk: Hunk): SplitRow[] {
+  let rows = splitCache.get(hunk);
+  if (!rows) {
+    rows = alignHunk(hunk);
+    splitCache.set(hunk, rows);
+  }
+  return rows;
+}
+
+function alignUnifiedCached(hunk: Hunk): UnifiedRow[] {
+  let rows = unifiedCache.get(hunk);
+  if (!rows) {
+    rows = alignHunkUnified(hunk);
+    unifiedCache.set(hunk, rows);
+  }
+  return rows;
+}
+
 function renderHunk(hunk: Hunk, mode: ViewMode): HTMLElement {
   const headerText = `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@${
     hunk.header ? ' ' + hunk.header : ''
   }`;
   const rows =
     mode === 'unified'
-      ? renderUnifiedRows(alignHunkUnified(hunk))
-      : renderSplitRows(alignHunk(hunk));
+      ? renderUnifiedRows(alignUnifiedCached(hunk))
+      : renderSplitRows(alignSplitCached(hunk));
 
   return el('div', { class: 'gpv-hunk' }, [
     el('div', { class: 'gpv-hunk-header', text: headerText }),

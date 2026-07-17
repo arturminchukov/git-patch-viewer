@@ -8,6 +8,7 @@ import {
   type SplitRow,
   type UnifiedRow,
 } from '../core/align';
+import { MAX_RENDER_LINE, fileByteSize, isFileOversized } from '../core/limits';
 import type { DiffLine, FileStatus, Hunk, PatchFile } from '../core/types';
 import { el } from './dom';
 import type { ViewMode } from './view';
@@ -74,11 +75,35 @@ function renderFile(file: PatchFile, index: number, mode: ViewMode): HTMLElement
     children.push(el('div', { class: 'gpv-binary', text: 'Binary file — no textual diff.' }));
   } else if (file.hunks.length === 0) {
     children.push(el('div', { class: 'gpv-empty-hunks', text: 'No changes to display.' }));
+  } else if (isFileOversized(file)) {
+    children.push(renderCollapsedFile(file, mode));
   } else {
     for (const hunk of file.hunks) children.push(renderHunk(hunk, mode));
   }
 
   return el('section', { class: 'gpv-file', id: fileDomId(index) }, children);
+}
+
+/**
+ * Placeholder for an oversized file: keeps the initial mount cheap and lets the
+ * user opt into the (potentially heavy) render. Hunks are built lazily under
+ * the word-diff guard and per-line truncation, so even "Render anyway" is bounded.
+ */
+function renderCollapsedFile(file: PatchFile, mode: ViewMode): HTMLElement {
+  const placeholder = el('div', { class: 'gpv-large-file' }, [
+    el('span', {
+      class: 'gpv-large-file-msg',
+      text: `Large diff not rendered — ${formatBytes(fileByteSize(file))}`,
+    }),
+  ]);
+  const btn = el('button', { class: 'gpv-btn', type: 'button', text: 'Render anyway' });
+  btn.addEventListener('click', () => {
+    const frag = document.createDocumentFragment();
+    for (const hunk of file.hunks) frag.append(renderHunk(hunk, mode));
+    placeholder.replaceWith(frag);
+  });
+  placeholder.append(btn);
+  return placeholder;
 }
 
 // Alignment (and its word-level LCS) is pure and depends only on the hunk, so
@@ -181,6 +206,12 @@ function marker(kind: DiffLine['kind']): string {
 
 /* ---- shared ---- */
 
+function formatBytes(n: number): string {
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${n} B`;
+}
+
 function codeCell(
   className: string,
   text: string,
@@ -197,6 +228,16 @@ function codeCell(
           : document.createTextNode(seg.text),
       );
     }
+  } else if (text.length > MAX_RENDER_LINE) {
+    // A single pathological line (e.g. minified bundle) would otherwise wrap
+    // into millions of visual rows; cap it and note the true size.
+    cell.append(document.createTextNode(text.slice(0, MAX_RENDER_LINE)));
+    cell.append(
+      el('span', {
+        class: 'gpv-line-truncated',
+        text: ` … line truncated (${formatBytes(text.length)})`,
+      }),
+    );
   } else {
     cell.append(document.createTextNode(text));
   }

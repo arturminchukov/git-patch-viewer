@@ -62,3 +62,50 @@ describe('renderFiles — DOM smoke test', () => {
     expect(host.querySelectorAll('.gpv-code.remove').length).toBeGreaterThan(0);
   });
 });
+
+function oversizedModel() {
+  const giant = 'y'.repeat(6000); // one line > MAX_RENDER_LINE (5000)
+  const raw = [
+    'diff --git a/dist/index.js b/dist/index.js',
+    '--- a/dist/index.js',
+    '+++ b/dist/index.js',
+    '@@ -1 +1 @@',
+    '-' + giant,
+    '+' + giant + 'z',
+  ].join('\n');
+  return parse(raw);
+}
+
+describe('renderFiles — oversized file collapse', () => {
+  it('collapses the file into a placeholder with a Render-anyway button', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    expect(host.querySelector('.gpv-large-file')).not.toBeNull();
+    expect(host.querySelector('.gpv-large-file button')).not.toBeNull();
+    // Nothing rendered as rows before the user opts in.
+    expect(host.querySelector('.gpv-rows')).toBeNull();
+  });
+
+  it('renders hunks when Render anyway is clicked, replacing the placeholder', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    expect(host.querySelector('.gpv-rows')).not.toBeNull();
+    expect(host.querySelector('.gpv-large-file')).toBeNull();
+  });
+
+  it('truncates an over-long line and shows a badge after expanding', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    expect(host.querySelector('.gpv-line-truncated')).not.toBeNull();
+    const code = host.querySelector('.gpv-code.add')!;
+    expect(code.textContent!.length).toBeLessThan(6000); // capped, not the full line
+  });
+});

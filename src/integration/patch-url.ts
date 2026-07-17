@@ -1,10 +1,15 @@
-// Map a GitHub / GitLab commit or PR/MR page URL to the URL that serves its raw
-// patch (which content.js renders). Pure and unit-tested.
+// Map a GitHub / GitLab commit, PR/MR or compare page URL to the URL that serves
+// its raw patch (which content.js renders). Pure and unit-tested.
 //
 // - GitHub: /owner/repo/commit/<sha>        -> +.patch
 //           /owner/repo/pull/<n>            -> +.patch
+//           /owner/repo/compare/<range>     -> +.patch
 // - GitLab: /group/.../-/commit/<sha>       -> +.patch
 //           /group/.../-/merge_requests/<n> -> +.patch
+//
+// GitLab compare pages are intentionally unsupported: unlike GitHub, GitLab
+// serves no patch for them — `/-/compare/a...b.patch` reads `.patch` as part of
+// the ref name and returns the HTML page.
 //
 // Bitbucket is intentionally unsupported: its patch is served from the REST API
 // at a URL without a `.patch` suffix, which content.js would not recognize.
@@ -40,6 +45,16 @@ function gitHub(url: URL): string | null {
   if (pull) {
     const [, owner, repo, n] = pull;
     return `${url.origin}/${owner}/${repo}/pull/${n}.patch`;
+  }
+  const compare = url.pathname.match(/^\/([^/]+)\/([^/]+)\/compare\/(.+)/);
+  if (compare) {
+    const [, owner, repo, rest] = compare;
+    // A range is free-form (`a..b`, `a...b`, `owner:branch...fork:branch`) and may
+    // contain slashes, so it is taken verbatim rather than pattern-matched. Either
+    // dot form serves a patch and the two mean different things, so the range is
+    // never rewritten. A range-less compare page (the ref picker) has no patch.
+    const range = rest.replace(/\/+$/, '').replace(/\.(?:patch|diff)$/, '');
+    if (range.includes('..')) return `${url.origin}/${owner}/${repo}/compare/${range}.patch`;
   }
   return null;
 }

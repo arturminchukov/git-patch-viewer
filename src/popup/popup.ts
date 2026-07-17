@@ -1,7 +1,8 @@
 // Popup: enable/disable the automatic in-page "View patch" button on
 // GitHub/GitLab. Once enabled (a one-time permission grant), the button appears
-// on commit and PR/MR pages by itself. While disabled, the popup still offers a
-// manual "open patch" for the current tab (via activeTab, no standing access).
+// on commit, PR/MR and GitHub compare pages by itself. While disabled, the popup
+// still offers a manual "open patch" for the current tab (via activeTab, no
+// standing access).
 
 import { OPTIONAL_ORIGINS } from '../integration/hosts';
 import { toPatchUrl } from '../integration/patch-url';
@@ -27,7 +28,7 @@ async function refresh(): Promise<void> {
   }
 
   status.textContent =
-    'Show a “View patch” button automatically on GitHub and GitLab commit and pull/merge request pages.';
+    'Show a “View patch” button automatically on GitHub and GitLab commit and pull/merge request pages, and on GitHub compare pages.';
   toggle.textContent = 'Enable';
 
   // While disabled, still let the user open the current page's patch manually.

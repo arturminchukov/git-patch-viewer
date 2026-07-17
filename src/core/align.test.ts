@@ -109,3 +109,28 @@ describe('alignHunkUnified', () => {
     expect(rows[0].segments).toBeNull();
   });
 });
+
+describe('word-diff guard', () => {
+  it('skips intra-line diff for oversized line pairs (returns null segments)', () => {
+    const big = 'x'.repeat(3000); // > MAX_WORD_DIFF_LINE (2000)
+    const rows = alignHunk(
+      hunk([
+        { kind: 'remove', text: big + 'a', oldNumber: 1, newNumber: null },
+        { kind: 'add', text: big + 'b', oldNumber: null, newNumber: 1 },
+      ]),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].leftSegments).toBeNull();
+    expect(rows[0].rightSegments).toBeNull();
+  });
+
+  it('still diffs short pairs', () => {
+    const rows = alignHunk(
+      hunk([
+        { kind: 'remove', text: 'foo old', oldNumber: 1, newNumber: null },
+        { kind: 'add', text: 'foo new', oldNumber: null, newNumber: 1 },
+      ]),
+    );
+    expect(rows[0].leftSegments).not.toBeNull();
+  });
+});

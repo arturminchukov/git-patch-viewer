@@ -3,6 +3,7 @@
 // changed line pairs. Both views share the same pairing logic. Pure functions.
 
 import type { DiffLine, Hunk } from './types';
+import { wordDiffAllowed } from './limits';
 
 export type SegmentKind = 'equal' | 'changed';
 
@@ -66,13 +67,15 @@ function segmentHunk(hunk: Hunk): HunkPart[] {
   return parts;
 }
 
-/** Segments for the i-th paired lines, or [null, null] when unpaired. */
+/** Segments for the i-th paired lines, or [null, null] when unpaired or oversized. */
 function pairSegments(
   removes: DiffLine[],
   adds: DiffLine[],
   i: number,
 ): [Segment[] | null, Segment[] | null] {
   if (i < removes.length && i < adds.length) {
+    // Skip the O(n·m) LCS on pathological lines; fall back to line-level highlight.
+    if (!wordDiffAllowed(removes[i].text, adds[i].text)) return [null, null];
     return diffWords(removes[i].text, adds[i].text);
   }
   return [null, null];

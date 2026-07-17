@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from '../core/parser';
-import { renderFiles } from './render';
+import { renderFileSections, renderFiles } from './render';
 
 // jsdom rewrites import.meta.url to an http URL, so resolve from the repo root.
 const samplePath = join(process.cwd(), 'demo/sample.patch');
@@ -60,5 +60,111 @@ describe('renderFiles — DOM smoke test', () => {
     host.append(frag);
     expect(host.querySelectorAll('.gpv-code.add').length).toBeGreaterThan(0);
     expect(host.querySelectorAll('.gpv-code.remove').length).toBeGreaterThan(0);
+  });
+});
+
+function oversizedModel() {
+  const giant = 'y'.repeat(6000); // one line > MAX_RENDER_LINE (5000)
+  const raw = [
+    'diff --git a/dist/index.js b/dist/index.js',
+    '--- a/dist/index.js',
+    '+++ b/dist/index.js',
+    '@@ -1 +1 @@',
+    '-' + giant,
+    '+' + giant + 'z',
+  ].join('\n');
+  return parse(raw);
+}
+
+describe('renderFiles — oversized file collapse', () => {
+  it('collapses the file into a placeholder with a Render-anyway button', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    expect(host.querySelector('.gpv-large-file')).not.toBeNull();
+    expect(host.querySelector('.gpv-large-file button')).not.toBeNull();
+    // Nothing rendered as rows before the user opts in.
+    expect(host.querySelector('.gpv-rows')).toBeNull();
+  });
+
+  it('renders hunks when Render anyway is clicked, replacing the placeholder', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    expect(host.querySelector('.gpv-rows')).not.toBeNull();
+    expect(host.querySelector('.gpv-large-file')).toBeNull();
+  });
+
+  it('truncates an over-long line and shows a badge after expanding', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    expect(host.querySelector('.gpv-line-truncated')).not.toBeNull();
+    const code = host.querySelector('.gpv-code.add')!;
+    expect(code.textContent!.length).toBeLessThan(6000); // capped, not the full line
+  });
+});
+
+describe('renderFiles — content-visibility sizing', () => {
+  it('sets an inline contain-intrinsic-size on each file section', () => {
+    const raw = [
+      'diff --git a/x.txt b/x.txt',
+      '--- a/x.txt',
+      '+++ b/x.txt',
+      '@@ -1 +1 @@',
+      '-a',
+      '+b',
+    ].join('\n');
+    const m = parse(raw);
+    const frag = renderFiles(m.files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    const section = host.querySelector('.gpv-file') as HTMLElement;
+    expect(section.style.getPropertyValue('contain-intrinsic-size')).not.toBe('');
+  });
+
+  it('refreshes intrinsic-size away from the collapsed estimate after expanding', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    const section = host.querySelector('.gpv-file') as HTMLElement;
+    expect(section.style.getPropertyValue('contain-intrinsic-size')).toBe('auto 120px');
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    // No longer the short collapsed estimate.
+    expect(section.style.getPropertyValue('contain-intrinsic-size')).not.toBe('auto 120px');
+  });
+});
+
+describe('renderFileSections — expansion persistence', () => {
+  it('renders an oversized file in full when its index is in `expanded`', () => {
+    const sections = renderFileSections(oversizedModel().files, 'split', {
+      expanded: new Set([0]),
+    });
+    const host = document.createElement('div');
+    host.append(...sections);
+
+    // Pre-expanded: rows are present and no collapse placeholder is shown.
+    expect(host.querySelector('.gpv-rows')).not.toBeNull();
+    expect(host.querySelector('.gpv-large-file')).toBeNull();
+  });
+
+  it('reports the expanded index via onExpand when Render anyway is clicked', () => {
+    const seen: number[] = [];
+    const sections = renderFileSections(oversizedModel().files, 'split', {
+      expanded: new Set<number>(),
+      onExpand: (i) => seen.push(i),
+    });
+    const host = document.createElement('div');
+    host.append(...sections);
+
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    expect(seen).toEqual([0]);
   });
 });

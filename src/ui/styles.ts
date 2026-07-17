@@ -293,6 +293,7 @@ export const STYLES = /* css */ `
   margin-bottom: 20px;
   overflow: hidden;
   scroll-margin-top: 12px;
+  content-visibility: auto;
 }
 .gpv-file-header {
   display: flex;
@@ -366,6 +367,16 @@ export const STYLES = /* css */ `
 .gpv-seg-changed { border-radius: 2px; }
 .gpv-code.remove .gpv-seg-changed { background: var(--del-strong); }
 .gpv-code.add .gpv-seg-changed { background: var(--add-strong); }
+
+.gpv-line-truncated { color: var(--text-muted); font-style: italic; }
+.gpv-large-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  color: var(--text-muted);
+}
+.gpv-large-file-msg { font-size: 13px; }
 
 .gpv-binary, .gpv-empty-hunks {
   padding: 16px 14px;

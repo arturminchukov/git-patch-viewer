@@ -293,6 +293,7 @@ export const STYLES = /* css */ `
   margin-bottom: 20px;
   overflow: hidden;
   scroll-margin-top: 12px;
+  content-visibility: auto;
 }
 .gpv-file-header {
   display: flex;

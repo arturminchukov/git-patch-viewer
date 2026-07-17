@@ -109,3 +109,23 @@ describe('renderFiles — oversized file collapse', () => {
     expect(code.textContent!.length).toBeLessThan(6000); // capped, not the full line
   });
 });
+
+describe('renderFiles — content-visibility sizing', () => {
+  it('sets an inline contain-intrinsic-size on each file section', () => {
+    const raw = [
+      'diff --git a/x.txt b/x.txt',
+      '--- a/x.txt',
+      '+++ b/x.txt',
+      '@@ -1 +1 @@',
+      '-a',
+      '+b',
+    ].join('\n');
+    const m = parse(raw);
+    const frag = renderFiles(m.files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    const section = host.querySelector('.gpv-file') as HTMLElement;
+    expect(section.style.getPropertyValue('contain-intrinsic-size')).not.toBe('');
+  });
+});

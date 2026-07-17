@@ -8,7 +8,7 @@ import {
   type SplitRow,
   type UnifiedRow,
 } from '../core/align';
-import { MAX_RENDER_LINE, fileByteSize, isFileOversized } from '../core/limits';
+import { MAX_RENDER_LINE, fileByteSize, fileLineCount, isFileOversized } from '../core/limits';
 import type { DiffLine, FileStatus, Hunk, PatchFile } from '../core/types';
 import { el } from './dom';
 import type { ViewMode } from './view';
@@ -24,6 +24,16 @@ const STATUS_SYMBOL: Record<FileStatus, string> = {
 /** Stable per-file DOM id so the sidebar can scroll to it. */
 export function fileDomId(index: number): string {
   return `gpv-file-${index}`;
+}
+
+// Approximate rendered row height (px) used to reserve section space so
+// content-visibility can skip off-screen work without collapsing the scrollbar.
+const ROW_HEIGHT = 20;
+
+function estimatedHeight(file: PatchFile): number {
+  if (file.isBinary || file.hunks.length === 0) return 60;
+  if (isFileOversized(file)) return 120; // collapsed placeholder is short
+  return fileLineCount(file) * ROW_HEIGHT + 40;
 }
 
 export function displayPath(file: PatchFile): string {
@@ -81,7 +91,9 @@ function renderFile(file: PatchFile, index: number, mode: ViewMode): HTMLElement
     for (const hunk of file.hunks) children.push(renderHunk(hunk, mode));
   }
 
-  return el('section', { class: 'gpv-file', id: fileDomId(index) }, children);
+  const section = el('section', { class: 'gpv-file', id: fileDomId(index) }, children);
+  section.style.setProperty('contain-intrinsic-size', `auto ${estimatedHeight(file)}px`);
+  return section;
 }
 
 /**

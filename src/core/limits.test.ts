@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PatchFile } from './types';
 import {
+  FILE_LINE_BUDGET,
   MAX_RENDER_LINE,
   MAX_WORD_DIFF_LINE,
   fileByteSize,
@@ -39,6 +40,10 @@ describe('wordDiffAllowed', () => {
     expect(wordDiffAllowed(big, 'abc')).toBe(false);
     expect(wordDiffAllowed('abc', big)).toBe(false);
   });
+  it('allows a line exactly at the limit but blocks one char over', () => {
+    expect(wordDiffAllowed('x'.repeat(MAX_WORD_DIFF_LINE), 'a')).toBe(true);
+    expect(wordDiffAllowed('x'.repeat(MAX_WORD_DIFF_LINE + 1), 'a')).toBe(false);
+  });
 });
 
 describe('fileByteSize / fileLineCount', () => {
@@ -65,5 +70,16 @@ describe('isFileOversized', () => {
     const line = 'x'.repeat(1000);
     const many = Array.from({ length: 600 }, () => line); // 600 KB > 512 KB
     expect(isFileOversized(fileWith(many))).toBe(true);
+  });
+  it('is true when line count exceeds FILE_LINE_BUDGET (small lines, small total)', () => {
+    // Each line is 1 char: no line trips MAX_RENDER_LINE and the total is far
+    // under FILE_BYTE_BUDGET, so only the line-count branch can flip this true.
+    const many = Array.from({ length: FILE_LINE_BUDGET + 1 }, () => 'a');
+    expect(isFileOversized(fileWith(many))).toBe(true);
+  });
+  it('is false when the longest line is exactly MAX_RENDER_LINE', () => {
+    // Boundary: the check is strictly greater-than, so exactly at the limit
+    // (and under the byte/line budgets) must not collapse.
+    expect(isFileOversized(fileWith(['x'.repeat(MAX_RENDER_LINE)]))).toBe(false);
   });
 });

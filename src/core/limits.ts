@@ -7,7 +7,11 @@ import type { PatchFile } from './types';
 export const MAX_WORD_DIFF_LINE = 2000;
 /** Above this single-line length the rendered text is truncated. */
 export const MAX_RENDER_LINE = 5000;
-/** Files whose changed text exceeds this many bytes render collapsed. */
+/**
+ * Files whose changed text exceeds this size render collapsed. Measured in
+ * UTF-16 code units (≈ bytes for ASCII — the minified-bundle case we target);
+ * used only to gate rendering cost, so byte-exactness is not required.
+ */
 export const FILE_BYTE_BUDGET = 512 * 1024;
 /** Files with more changed lines than this render collapsed. */
 export const FILE_LINE_BUDGET = 20000;
@@ -17,7 +21,10 @@ export function wordDiffAllowed(a: string, b: string): boolean {
   return Math.max(a.length, b.length) <= MAX_WORD_DIFF_LINE;
 }
 
-/** Total length of all hunk line texts in a file. */
+/**
+ * Total length of all hunk line texts in a file, in UTF-16 code units
+ * (≈ bytes for ASCII). An approximate size for display and cost gating.
+ */
 export function fileByteSize(file: PatchFile): number {
   let total = 0;
   for (const hunk of file.hunks) {

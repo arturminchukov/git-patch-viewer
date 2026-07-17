@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from '../core/parser';
-import { renderFiles } from './render';
+import { renderFileSections, renderFiles } from './render';
 
 // jsdom rewrites import.meta.url to an http URL, so resolve from the repo root.
 const samplePath = join(process.cwd(), 'demo/sample.patch');
@@ -127,5 +127,44 @@ describe('renderFiles — content-visibility sizing', () => {
 
     const section = host.querySelector('.gpv-file') as HTMLElement;
     expect(section.style.getPropertyValue('contain-intrinsic-size')).not.toBe('');
+  });
+
+  it('refreshes intrinsic-size away from the collapsed estimate after expanding', () => {
+    const frag = renderFiles(oversizedModel().files);
+    const host = document.createElement('div');
+    host.append(frag);
+
+    const section = host.querySelector('.gpv-file') as HTMLElement;
+    expect(section.style.getPropertyValue('contain-intrinsic-size')).toBe('auto 120px');
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    // No longer the short collapsed estimate.
+    expect(section.style.getPropertyValue('contain-intrinsic-size')).not.toBe('auto 120px');
+  });
+});
+
+describe('renderFileSections — expansion persistence', () => {
+  it('renders an oversized file in full when its index is in `expanded`', () => {
+    const sections = renderFileSections(oversizedModel().files, 'split', {
+      expanded: new Set([0]),
+    });
+    const host = document.createElement('div');
+    host.append(...sections);
+
+    // Pre-expanded: rows are present and no collapse placeholder is shown.
+    expect(host.querySelector('.gpv-rows')).not.toBeNull();
+    expect(host.querySelector('.gpv-large-file')).toBeNull();
+  });
+
+  it('reports the expanded index via onExpand when Render anyway is clicked', () => {
+    const seen: number[] = [];
+    const sections = renderFileSections(oversizedModel().files, 'split', {
+      expanded: new Set<number>(),
+      onExpand: (i) => seen.push(i),
+    });
+    const host = document.createElement('div');
+    host.append(...sections);
+
+    (host.querySelector('.gpv-large-file button') as HTMLButtonElement).click();
+    expect(seen).toEqual([0]);
   });
 });

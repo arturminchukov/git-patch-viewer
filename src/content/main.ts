@@ -136,6 +136,10 @@ function mount(root: HTMLElement, model: PatchModel, opts: MountOptions): void {
   let layout = opts.layout;
   const content = el('div', { class: 'gpv-content' });
 
+  // Oversized files the user expanded via "Render anyway"; kept so a view-mode
+  // rebuild (which recreates every section) doesn't silently re-collapse them.
+  const expanded = new Set<number>();
+
   // File sections indexed by original file index, reused across layout
   // switches. `sidebar` is referenced below but assigned further down; the
   // callbacks only fire after it exists.
@@ -151,7 +155,10 @@ function mount(root: HTMLElement, model: PatchModel, opts: MountOptions): void {
   // Full (re)build for the current view mode: rebuild section DOM, order it,
   // then reconnect scroll-spy. Used on mount and view-mode change.
   const paintContent = () => {
-    sections = renderFileSections(model.files, view);
+    sections = renderFileSections(model.files, view, {
+      expanded,
+      onExpand: (i) => expanded.add(i),
+    });
     applyOrder();
     sidebar.connect(content);
   };

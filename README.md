@@ -16,7 +16,8 @@ Features:
 - Commit **subject + collapsible description** panel for `format-patch` input.
 - **Light and dark** themes (follows the OS by default, toggle persisted).
 - Optional **automatic "View patch" button** on GitHub / GitLab commit and
-  PR/MR pages (enable once from the toolbar popup — see below).
+  PR/MR pages, plus GitHub compare pages (enable once from the toolbar popup —
+  see below).
 
 ## How it works
 
@@ -25,18 +26,22 @@ When the browser opens any URL ending in `.patch` or `.diff` (GitHub
 script checks that the page really is a diff and, if so, replaces the plain
 text with the rendered UI inside an isolated Shadow DOM.
 
-## "View patch" button on commit / PR pages
+## "View patch" button on commit / PR / compare pages
 
 Open the toolbar popup and press **Enable**: the browser asks once for access to
 GitHub and GitLab, and from then on a floating **View patch** button appears
-**automatically** on their commit and pull/merge request pages, opening the
-`.patch` URL (rendered by the content script). Disable it again anytime from the
-same popup.
+**automatically** on their commit and pull/merge request pages, and on GitHub
+compare pages (`compare/<base>..<head>`), opening the `.patch` URL (rendered by
+the content script). Disable it again anytime from the same popup.
+
+Compare ranges are passed through as written, so `compare/a..b` and
+`compare/a...b` each open the patch that page shows.
 
 Access to those sites is **optional** — nothing is requested at install time,
 and while disabled the popup still offers a manual "open patch" for the current
 tab (using only `activeTab`). Bitbucket is not supported (its patch is served
-from the REST API at a URL the renderer does not recognize).
+from the REST API at a URL the renderer does not recognize), and neither are
+GitLab compare pages (GitLab serves no patch for them).
 
 ## Architecture
 

@@ -1,14 +1,34 @@
 // Background service worker: registers the in-page "View patch" button injector
-// whenever the optional host permission is present, and unregisters it when
-// revoked. State derives from the granted permission, so the button keeps
+// for the hosts the user has granted, and unregisters it once the last one is
+// revoked. State derives from the granted permissions, so the button keeps
 // appearing automatically across sessions once the user has enabled it.
 
-import { BUTTON_MATCHES, OPTIONAL_ORIGINS } from './hosts';
+import {
+  BUTTON_MATCHES,
+  GITEA_HOSTS,
+  OPTIONAL_ORIGINS,
+  giteaButtonMatches,
+  giteaOrigin,
+} from './hosts';
 
 const INJECT_ID = 'gpv-inject-button';
 
-function hasIntegration(): Promise<boolean> {
-  return chrome.permissions.contains({ origins: OPTIONAL_ORIGINS });
+/**
+ * Pages to inject into. Only granted hosts may appear: registering a match the
+ * extension has no permission for makes the whole call fail.
+ */
+async function grantedMatches(): Promise<string[]> {
+  const [core, ...gitea] = await Promise.all([
+    chrome.permissions.contains({ origins: OPTIONAL_ORIGINS }),
+    ...GITEA_HOSTS.map((host) => chrome.permissions.contains({ origins: [giteaOrigin(host)] })),
+  ]);
+
+  const matches: string[] = [];
+  if (core) matches.push(...BUTTON_MATCHES);
+  GITEA_HOSTS.forEach((host, i) => {
+    if (gitea[i]) matches.push(...giteaButtonMatches(host));
+  });
+  return matches;
 }
 
 async function unregister(): Promise<void> {
@@ -22,13 +42,13 @@ async function unregister(): Promise<void> {
   }
 }
 
-async function register(): Promise<void> {
+async function register(matches: string[]): Promise<void> {
   await unregister(); // avoid duplicate-id errors
   try {
     await chrome.scripting.registerContentScripts([
       {
         id: INJECT_ID,
-        matches: BUTTON_MATCHES,
+        matches,
         js: ['inject-button.js'],
         runAt: 'document_idle',
       },
@@ -39,7 +59,8 @@ async function register(): Promise<void> {
 }
 
 async function sync(): Promise<void> {
-  if (await hasIntegration()) await register();
+  const matches = await grantedMatches();
+  if (matches.length) await register(matches);
   else await unregister();
 }
 

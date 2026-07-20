@@ -75,6 +75,44 @@ describe('toPatchUrl — GitLab', () => {
   });
 });
 
+describe('toPatchUrl — Gitea / Forgejo', () => {
+  it('maps a commit page to its .patch', () => {
+    expect(toPatchUrl('https://codeberg.org/owner/repo/commit/a07be73315ab99e4e7f53f431b07d4caa728a302')).toBe(
+      'https://codeberg.org/owner/repo/commit/a07be73315ab99e4e7f53f431b07d4caa728a302.patch',
+    );
+  });
+
+  it('maps a sha256 commit to its .patch', () => {
+    const sha = 'a'.repeat(64);
+    expect(toPatchUrl(`https://gitea.com/owner/repo/commit/${sha}`)).toBe(
+      `https://gitea.com/owner/repo/commit/${sha}.patch`,
+    );
+  });
+
+  it('ignores a hex run longer than sha256 rather than truncating it', () => {
+    expect(toPatchUrl(`https://gitea.com/owner/repo/commit/${'a'.repeat(65)}`)).toBeNull();
+  });
+
+  it('maps a pull request (plural "pulls", ignoring subpaths) to its .patch', () => {
+    expect(toPatchUrl('https://codeberg.org/forgejo/forgejo/pulls/9000/files')).toBe(
+      'https://codeberg.org/forgejo/forgejo/pulls/9000.patch',
+    );
+  });
+
+  it('ignores wiki commits, which are a different route', () => {
+    expect(toPatchUrl('https://codeberg.org/owner/repo/wiki/commit/abcdef1234567')).toBeNull();
+  });
+
+  it('ignores unrelated instance pages', () => {
+    expect(toPatchUrl('https://codeberg.org/owner/repo/issues/42')).toBeNull();
+    expect(toPatchUrl('https://codeberg.org/owner/repo')).toBeNull();
+  });
+
+  it('ignores an unlisted instance, since only the hostname identifies one', () => {
+    expect(toPatchUrl('https://gitea.example.com/owner/repo/pulls/42')).toBeNull();
+  });
+});
+
 describe('toPatchUrl — other', () => {
   it('returns null for Bitbucket (unsupported)', () => {
     expect(toPatchUrl('https://bitbucket.org/ws/repo/commits/abc1234def5678')).toBeNull();

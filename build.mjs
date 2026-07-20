@@ -10,9 +10,22 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes('--watch');
 
+// `optionalOrigins` names the manifest key each browser takes optional host
+// permissions under; the Gitea/Forgejo instances are appended to it at build
+// time (see writeManifest).
 const TARGETS = [
-  { name: 'chrome', dir: 'dist-chrome', overlay: 'manifest/chrome.json' },
-  { name: 'firefox', dir: 'dist-firefox', overlay: 'manifest/firefox.json' },
+  {
+    name: 'chrome',
+    dir: 'dist-chrome',
+    overlay: 'manifest/chrome.json',
+    optionalOrigins: 'optional_host_permissions',
+  },
+  {
+    name: 'firefox',
+    dir: 'dist-firefox',
+    overlay: 'manifest/firefox.json',
+    optionalOrigins: 'optional_permissions',
+  },
 ];
 
 async function exists(path) {
@@ -28,6 +41,16 @@ async function writeManifest(target) {
   const base = JSON.parse(await readFile(join(root, 'manifest/base.json'), 'utf8'));
   const overlay = JSON.parse(await readFile(join(root, target.overlay), 'utf8'));
   const merged = { ...base, ...overlay };
+  // Declare an optional origin per known Gitea/Forgejo instance, off until the
+  // user enables it. Derived from the list the popup itself reads, so a host
+  // can never be offered without the permission to back it (see hosts.ts).
+  const instances = JSON.parse(
+    await readFile(join(root, 'src/integration/gitea-instances.json'), 'utf8'),
+  );
+  merged[target.optionalOrigins] = [
+    ...(merged[target.optionalOrigins] ?? []),
+    ...instances.map((host) => `*://${host}/*`),
+  ];
   // Releases stamp the tag version (e.g. GPV_VERSION=0.2.0) into the manifest.
   if (process.env.GPV_VERSION) merged.version = process.env.GPV_VERSION;
   await writeFile(

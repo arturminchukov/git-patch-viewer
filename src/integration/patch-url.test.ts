@@ -89,6 +89,10 @@ describe('toPatchUrl — Gitea / Forgejo', () => {
     );
   });
 
+  it('ignores a hex run longer than sha256 rather than truncating it', () => {
+    expect(toPatchUrl(`https://gitea.com/owner/repo/commit/${'a'.repeat(65)}`)).toBeNull();
+  });
+
   it('maps a pull request (plural "pulls", ignoring subpaths) to its .patch', () => {
     expect(toPatchUrl('https://codeberg.org/forgejo/forgejo/pulls/9000/files')).toBe(
       'https://codeberg.org/forgejo/forgejo/pulls/9000.patch',

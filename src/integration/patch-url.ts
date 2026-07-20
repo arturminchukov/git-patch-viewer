@@ -87,7 +87,11 @@ function gitLab(url: URL): string | null {
 // path plus `.patch`. Anything nested deeper (`/repo/wiki/commit/...`) is a
 // different route and has no patch, so the owner/repo segments stay `[^/]+`.
 function gitea(url: URL): string | null {
-  const commit = url.pathname.match(new RegExp(`^/([^/]+)/([^/]+)/commit/(${GITEA_SHA})`));
+  // The trailing lookahead keeps a longer hex run from being truncated to a
+  // valid-looking 64-char id: such a segment is not a commit and has no patch.
+  const commit = url.pathname.match(
+    new RegExp(`^/([^/]+)/([^/]+)/commit/(${GITEA_SHA})(?![0-9a-f])`),
+  );
   if (commit) {
     const [, owner, repo, sha] = commit;
     return `${url.origin}/${owner}/${repo}/commit/${sha}.patch`;

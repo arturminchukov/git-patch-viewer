@@ -18,16 +18,16 @@ const INJECT_ID = 'gpv-inject-button';
  * extension has no permission for makes the whole call fail.
  */
 async function grantedMatches(): Promise<string[]> {
-  const matches: string[] = [];
+  const [core, ...gitea] = await Promise.all([
+    chrome.permissions.contains({ origins: OPTIONAL_ORIGINS }),
+    ...GITEA_HOSTS.map((host) => chrome.permissions.contains({ origins: [giteaOrigin(host)] })),
+  ]);
 
-  if (await chrome.permissions.contains({ origins: OPTIONAL_ORIGINS })) {
-    matches.push(...BUTTON_MATCHES);
-  }
-  for (const host of GITEA_HOSTS) {
-    if (await chrome.permissions.contains({ origins: [giteaOrigin(host)] })) {
-      matches.push(...giteaButtonMatches(host));
-    }
-  }
+  const matches: string[] = [];
+  if (core) matches.push(...BUTTON_MATCHES);
+  GITEA_HOSTS.forEach((host, i) => {
+    if (gitea[i]) matches.push(...giteaButtonMatches(host));
+  });
   return matches;
 }
 

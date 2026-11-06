@@ -22,6 +22,8 @@ Features:
 - Optional **automatic "View patch" button** on GitHub / GitLab commit and
   PR/MR pages, plus GitHub compare pages (enable once from the toolbar popup —
   see below).
+- Optional **downloadable patch previews**, enabled separately per site, for
+  patch links served as attachments or `application/octet-stream`.
 
 ## How it works
 
@@ -47,6 +49,43 @@ tab (using only `activeTab`). Bitbucket is not supported (its patch is served
 from the REST API at a URL the renderer does not recognize), and neither are
 GitLab compare pages (GitLab serves no patch for them).
 
+## Downloadable patch previews
+
+Open the toolbar popup on an HTTP(S) site and select **Enable previews on this
+site**. Ordinary, unmodified primary clicks on `.patch` / `.diff` links then open
+an extension-owned preview tab, leaving the source page open. This also handles
+`Content-Disposition: attachment`, octet-stream responses and anchor `download`
+attributes. The existing raw-document renderer is unchanged.
+
+For cross-site links, enable **both** the source origin and the destination
+origin by visiting each and using the popup. Other destinations remain native.
+The explicit opt-in list is independent of the browser's existing patch-page or
+forge-button permissions. Disabling previews does not revoke a shared host grant
+used by the forge button. Browser host permissions cover all ports, but preview
+opt-in is checked against the exact origin (scheme, host and port).
+
+Only trusted primary clicks are intercepted; modifier clicks, middle/right clicks,
+custom named targets and non-HTTP(S) links retain their normal behavior. No links
+are crawled or fetched before a click. Both origins and host access are checked
+again before fetching. The viewer accepts supported `diff --git` files, not HTML
+login pages or unsupported plain unified diffs, regardless of response MIME.
+
+Requests omit cookies and credentials and send no referrer. Redirects are rejected
+instead of following them to an unchecked origin. Cookie-authenticated endpoints,
+redirecting URLs and requests taking longer than 60 seconds fall back to the
+original link. Original target/download attributes are replayed once in the source
+tab, best effort: browser popup/download restrictions may still apply. If that
+source is gone, the viewer keeps ordinary original-URL and download actions.
+Requests are single-use; reloading a completed viewer offers the original URL
+rather than silently fetching again.
+
+The page retains only click intent. The extension viewer fetches and parses the
+response in its own document and reuses the same sidebar, resizing, themes, view
+modes and large-file rendering limits as raw patches. Patch bodies are never sent
+through runtime messages, written to extension storage or handled by the worker.
+See [the preview interface](docs/download-preview.md) for the security boundary
+and integration-test contract.
+
 ## Architecture
 
 Pure core (no DOM, no I/O) + a thin I/O boundary:
@@ -57,17 +96,22 @@ src/
             align.ts    hunk      -> split rows + word-level segments (pure, tested)
             types.ts    data model
   ui/       render.ts   PatchModel -> DOM nodes
+            mount.ts    shared Shadow DOM viewer mounting, no startup side effects
             sidebar.ts  file list + click-to-scroll + scroll-spy
             file-order.ts  file order per layout (flat/tree) for content
             theme.ts    light/dark, persisted (storage injected)
             styles.ts   themed CSS (Shadow DOM scoped)
             dom.ts      tiny element helper
   content/  detect.ts   is-this-a-diff guard
-            main.ts      the only side-effecting module: read -> mount
+            main.ts      raw document: read -> parse -> shared mount
+            preview-links.ts  optional trusted-click interceptor (no fetching)
+  viewer/   viewer.html / entry.ts  extension-owned downloadable patch viewer
+            fetch-patch.ts         bounded credential-free fetch -> parser
   integration/  patch-url.ts     page URL -> raw-patch URL (pure, tested)
                 hosts.ts         optional origins + injection match patterns
                 inject-button.ts floating "View patch" button on host pages
                 background.ts    (un)registers the injector as permission changes
+                preview-*.ts     preview opt-in, registration and bound request RPC
   popup/    popup.html/.ts       toolbar popup: enable/disable the button
 ```
 

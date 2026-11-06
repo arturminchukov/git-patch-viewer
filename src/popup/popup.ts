@@ -7,6 +7,7 @@
 // Gitea/Forgejo instances are listed separately and granted one at a time, so
 // enabling one does not hand out access to the rest.
 
+import { initPreviewPopup } from './preview-popup';
 import { GITEA_HOSTS, OPTIONAL_ORIGINS, giteaOrigin } from '../integration/hosts';
 import { toPatchUrl } from '../integration/patch-url';
 
@@ -97,3 +98,4 @@ toggle.addEventListener('click', () => {
 });
 
 void refresh();
+void initPreviewPopup();

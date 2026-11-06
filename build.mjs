@@ -49,6 +49,8 @@ async function writeManifest(target) {
   );
   merged[target.optionalOrigins] = [
     ...(merged[target.optionalOrigins] ?? []),
+    'http://*/*',
+    'https://*/*',
     ...instances.map((host) => `*://${host}/*`),
   ];
   // Releases stamp the tag version (e.g. GPV_VERSION=0.2.0) into the manifest.
@@ -77,6 +79,8 @@ async function buildTarget(target) {
       background: join(root, 'src/integration/background.ts'),
       'inject-button': join(root, 'src/integration/inject-button.ts'),
       popup: join(root, 'src/popup/popup.ts'),
+      viewer: join(root, 'src/viewer/entry.ts'),
+      'preview-links': join(root, 'src/content/preview-links.ts'),
     },
     bundle: true,
     format: 'iife',
@@ -96,6 +100,7 @@ async function buildTarget(target) {
   await writeManifest(target);
   await copyIcons(target);
   await cp(join(root, 'src/popup/popup.html'), join(outDir, 'popup.html'));
+  await cp(join(root, 'src/viewer/viewer.html'), join(outDir, 'viewer.html'));
 }
 
 for (const target of TARGETS) {

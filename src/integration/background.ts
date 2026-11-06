@@ -3,6 +3,9 @@
 // revoked. State derives from the granted permissions, so the button keeps
 // appearing automatically across sessions once the user has enabled it.
 
+import { handlePreviewMessage } from './preview-background';
+import { syncPreviewScripts } from './preview-registration';
+import { permittedOrigins, PREVIEW_ORIGINS_KEY } from './preview-policy';
 import {
   BUTTON_MATCHES,
   GITEA_HOSTS,
@@ -68,3 +71,33 @@ chrome.runtime.onInstalled.addListener(() => void sync());
 chrome.runtime.onStartup.addListener(() => void sync());
 chrome.permissions.onAdded.addListener(() => void sync());
 chrome.permissions.onRemoved.addListener(() => void sync());
+
+// Serialize metadata transactions and registration updates across concurrent
+// clicks/popups. A worker restart reads the bounded pending records back.
+let previewQueue: Promise<unknown> = Promise.resolve();
+function queuePreview(task: () => Promise<unknown>): Promise<unknown> {
+  const result = previewQueue.then(task);
+  previewQueue = result.catch((err) => console.error('[git-patch-viewer] preview', err));
+  return result;
+}
+function syncPreviews(): void {
+  void queuePreview(syncPreviewScripts);
+}
+chrome.runtime.onInstalled.addListener(syncPreviews);
+chrome.runtime.onStartup.addListener(syncPreviews);
+chrome.permissions.onAdded.addListener(syncPreviews);
+chrome.permissions.onRemoved.addListener(() => {
+  void queuePreview(async () => {
+    // Drop revoked origins from explicit opt-in and invalidate source caches.
+    await chrome.storage.local.set({ [PREVIEW_ORIGINS_KEY]: await permittedOrigins() });
+    await syncPreviewScripts();
+  });
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[PREVIEW_ORIGINS_KEY]) syncPreviews();
+});
+chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (!message || typeof message.type !== 'string' || !['preview:config', 'preview:open', 'preview:claim', 'preview:failed', 'preview:complete'].includes(message.type)) return false;
+  void queuePreview(() => handlePreviewMessage(message, sender)).then(reply, () => reply({ allowed: false, opened: false, replayed: false }));
+  return true;
+});

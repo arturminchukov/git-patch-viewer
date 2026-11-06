@@ -46,9 +46,36 @@ jobs:
       - name: Browser regressions (Chromium and Firefox)
         run: yarn test:browser
 
+      - name: Install native Firefox test driver
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/mozilla/geckodriver/releases/download/v0.37.1/geckodriver-v0.37.1-linux64.tar.gz \
+            --output "$RUNNER_TEMP/geckodriver.tar.gz"
+          printf '%s  %s\n' \
+            e815130ea95983e162ae91843b48d3a3ce991735635fce83a647afde21e09f7e \
+            "$RUNNER_TEMP/geckodriver.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/geckodriver.tar.gz" -C "$RUNNER_TEMP" geckodriver
+
+      - name: Native Firefox download preview regressions
+        run: |
+          python3 browser-tests/native-preview-firefox.py \
+            --firefox "$(node --input-type=module -e 'import { firefox } from "@playwright/test"; console.log(firefox.executablePath())')" \
+            --geckodriver "$RUNNER_TEMP/geckodriver" \
+            --output "$RUNNER_TEMP/gpv-native-firefox"
+
       # Runs the same validator AMO uses. Fails on errors; warnings are allowed.
       - name: Lint web extension (Firefox / AMO)
         run: npx --yes web-ext@latest lint --source-dir dist-firefox --output text
+
+      - name: Upload browser regression evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: browser-regression-evidence
+          path: |
+            test-results
+            ${{ runner.temp }}/gpv-native-firefox
+          if-no-files-found: ignore
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v5

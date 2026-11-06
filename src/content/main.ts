@@ -95,10 +95,10 @@ async function run(): Promise<void> {
       );
     }
 
-    // Replace the visible page and prevent the outer document from scrolling;
-    // scrolling happens inside the content pane only.
-    document.documentElement.style.cssText = 'margin:0;height:100%;overflow:hidden';
-    document.body.style.cssText = 'margin:0;height:100%;overflow:hidden';
+    // Let the document own vertical scrolling, including on raw text pages
+    // whose browser-provided styles would otherwise constrain the viewer.
+    document.documentElement.style.cssText = 'margin:0';
+    document.body.style.cssText = 'margin:0';
     document.body.replaceChildren(host);
     document.title = titleFor(model);
     reveal();

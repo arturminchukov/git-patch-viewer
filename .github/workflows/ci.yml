@@ -40,6 +40,12 @@ jobs:
       - name: Build
         run: yarn build
 
+      - name: Install browser test engines
+        run: yarn exec playwright install --with-deps chromium firefox
+
+      - name: Browser regressions (Chromium and Firefox)
+        run: yarn test:browser
+
       # Runs the same validator AMO uses. Fails on errors; warnings are allowed.
       - name: Lint web extension (Firefox / AMO)
         run: npx --yes web-ext@latest lint --source-dir dist-firefox --output text

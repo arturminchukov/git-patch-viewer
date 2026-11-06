@@ -9,3 +9,5 @@ web-ext-artifacts/
 *.zip
 .DS_Store
 docs/superpowers/
+test-results/
+playwright-report/

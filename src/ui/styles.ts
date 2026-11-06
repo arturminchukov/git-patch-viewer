@@ -6,8 +6,7 @@ export const STYLES = /* css */ `
 :host {
   all: initial;
   display: block;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 .gpv-root {
   --bg: #ffffff;
@@ -30,8 +29,7 @@ export const STYLES = /* css */ `
 
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
   font-family: var(--font-ui);
   color: var(--text);
   background: var(--bg);
@@ -159,12 +157,15 @@ export const STYLES = /* css */ `
 /* Layout */
 .gpv-body {
   flex: 1;
-  min-height: 0;
   display: grid;
   /* Sidebar width is drag-adjustable via the resizer; the var persists. */
-  grid-template-columns: var(--gpv-sidebar-w, 280px) 5px 1fr;
+  grid-template-columns: var(--gpv-sidebar-w, 280px) 5px minmax(0, 1fr);
 }
 .gpv-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
   border-right: 1px solid var(--border);
   background: var(--bg-elev);
   overflow-y: auto;
@@ -186,7 +187,7 @@ export const STYLES = /* css */ `
 /* While dragging, suppress selection and force the resize cursor everywhere. */
 .gpv-resizing { user-select: none; cursor: col-resize; }
 .gpv-content {
-  overflow-y: auto;
+  min-width: 0;
   padding: 16px;
 }
 

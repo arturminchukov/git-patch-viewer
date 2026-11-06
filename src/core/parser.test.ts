@@ -81,6 +81,133 @@ describe('parse — files and hunks', () => {
   });
 });
 
+describe('parse — hunk boundaries', () => {
+  it('excludes the format-patch footer from lines and change counts', () => {
+    const model = parse(`From a07be73315ab99e4e7f53f431b07d4caa728a302 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] Replace a line
+
+---
+diff --git a/file.txt b/file.txt
+--- a/file.txt
++++ b/file.txt
+@@ -1,2 +1,2 @@
+ keep
+-old
++new
+${'-- '}
+2.43.0
+`);
+    const file = model.files[0];
+    expect(file.hunks[0].lines).toEqual([
+      { kind: 'context', text: 'keep', oldNumber: 1, newNumber: 1 },
+      { kind: 'remove', text: 'old', oldNumber: 2, newNumber: null },
+      { kind: 'add', text: 'new', oldNumber: null, newNumber: 2 },
+    ]);
+    expect(file.additions).toBe(1);
+    expect(file.deletions).toBe(1);
+  });
+
+  it.each([
+    { header: '@@ -1 +1 @@', body: '-old\n+new', additions: 1, deletions: 1 },
+    { header: '@@ -0,0 +1 @@', body: '+new', additions: 1, deletions: 0 },
+    { header: '@@ -1 +0,0 @@', body: '-old', additions: 0, deletions: 1 },
+    { header: '@@ -0,0 +0,0 @@', body: '', additions: 0, deletions: 0 },
+    { header: '@@ -1 +1 @@', body: '+new\n-old', additions: 1, deletions: 1 },
+  ])('respects omitted and zero counts: $header ($body)', ({ header, body, additions, deletions }) => {
+    const file = parse([
+      'diff --git a/file.txt b/file.txt', header, ...(body ? body.split('\n') : []),
+      '-- ', '2.43.0', '',
+    ].join('\n')).files[0];
+    expect(file.hunks[0].lines).toHaveLength(additions + deletions);
+    expect(file.additions).toBe(additions);
+    expect(file.deletions).toBe(deletions);
+  });
+
+  it.each(['\n', '\r\n'])('preserves footer-like content inside hunks with %j endings', (ending) => {
+    const file = parse([
+      'diff --git a/file.txt b/file.txt',
+      '@@ -4,3 +4,2 @@',
+      '-- ',
+      '--- ',
+      '+-- ',
+      ' 2.43.0',
+      '-- ',
+      '2.43.0',
+      '',
+    ].join(ending)).files[0];
+    expect(file.hunks[0].lines).toEqual([
+      { kind: 'remove', text: '- ', oldNumber: 4, newNumber: null },
+      { kind: 'remove', text: '-- ', oldNumber: 5, newNumber: null },
+      { kind: 'add', text: '-- ', oldNumber: null, newNumber: 4 },
+      { kind: 'context', text: '2.43.0', oldNumber: 6, newNumber: 5 },
+    ]);
+    expect(file.additions).toBe(1);
+    expect(file.deletions).toBe(2);
+  });
+
+  it('ignores no-newline markers without consuming either range', () => {
+    const file = parse([
+      'diff --git a/file.txt b/file.txt',
+      '@@ -1 +1 @@',
+      '-old',
+      '\\ No newline at end of file',
+      '+new',
+      '\\ No newline at end of file',
+      '-- ',
+      '2.43.0',
+    ].join('\n')).files[0];
+    expect(file.hunks[0].lines).toEqual([
+      { kind: 'remove', text: 'old', oldNumber: 1, newNumber: null },
+      { kind: 'add', text: 'new', oldNumber: null, newNumber: 1 },
+    ]);
+  });
+
+  it('resets the ranges for subsequent hunks and files', () => {
+    const model = parse(`diff --git a/first.txt b/first.txt
+@@ -1 +1 @@
+-old
++new
+@@ -10,0 +11 @@
++later
+diff --git a/second.txt b/second.txt
+@@ -3 +3 @@
+-before
++after
+${'-- '}
+2.43.0
+`);
+    expect(model.files).toHaveLength(2);
+    expect(model.files[0].hunks.map((hunk) => hunk.lines)).toEqual([
+      [
+        { kind: 'remove', text: 'old', oldNumber: 1, newNumber: null },
+        { kind: 'add', text: 'new', oldNumber: null, newNumber: 1 },
+      ],
+      [{ kind: 'add', text: 'later', oldNumber: null, newNumber: 11 }],
+    ]);
+    expect(model.files[1].hunks[0].lines).toEqual([
+      { kind: 'remove', text: 'before', oldNumber: 3, newNumber: null },
+      { kind: 'add', text: 'after', oldNumber: null, newNumber: 3 },
+    ]);
+    expect(model.files.map(({ additions, deletions }) => ({ additions, deletions }))).toEqual([
+      { additions: 2, deletions: 1 },
+      { additions: 1, deletions: 1 },
+    ]);
+  });
+
+  it('retains available content in truncated hunks', () => {
+    const file = parse(`diff --git a/file.txt b/file.txt
+@@ -1,5 +1,5 @@
+ keep
+-old
++new`).files[0];
+    expect(file.hunks[0].lines).toEqual([
+      { kind: 'context', text: 'keep', oldNumber: 1, newNumber: 1 },
+      { kind: 'remove', text: 'old', oldNumber: 2, newNumber: null },
+      { kind: 'add', text: 'new', oldNumber: null, newNumber: 2 },
+    ]);
+  });
+});
+
 describe('parse — status detection', () => {
   it('detects added files', () => {
     const model = parse(`diff --git a/new.txt b/new.txt

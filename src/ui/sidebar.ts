@@ -66,13 +66,46 @@ export function renderSidebar(files: PatchFile[], options: SidebarOptions = {}):
   // briefly so the clicked file stays active until the user scrolls manually.
   const SPY_PAUSE_MS = 300;
   let spyPausedUntil = 0;
+  let cancelNavigation = () => {};
 
   const scrollToTarget = (id: string | undefined) => {
+    cancelNavigation();
     if (!id) return;
     const target = (element.getRootNode() as ParentNode).querySelector<HTMLElement>(`#${id}`);
     spyPausedUntil = performance.now() + SPY_PAUSE_MS;
-    target?.scrollIntoView({ behavior: 'instant', block: 'start' });
     setActive(id);
+    if (!target) return;
+    const align = () => target.scrollIntoView({ behavior: 'instant', block: 'start' });
+    align();
+
+    // Skipped files/hunks resolve their intrinsic sizes over subsequent frames.
+    // Recheck only this section, not every preceding file. Three stable frames
+    // cover nested visibility updates; cap the work even if layout never settles.
+    let previous = target.getBoundingClientRect();
+    let stableFrames = 0;
+    let remainingFrames = 20;
+    let cancelled = false;
+    const inputEvents = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+    const cancel = () => {
+      cancelled = true;
+      for (const event of inputEvents) window.removeEventListener(event, cancel);
+    };
+    cancelNavigation = cancel;
+    for (const event of inputEvents) window.addEventListener(event, cancel, { passive: true });
+    const settle = () => {
+      if (cancelled) return;
+      if (!target.isConnected) { cancel(); return; }
+      const current = target.getBoundingClientRect();
+      const moved = Math.abs(current.top - previous.top) > 1;
+      const resized = Math.abs(current.height - previous.height) > 1;
+      stableFrames = moved || resized ? 0 : stableFrames + 1;
+      if (moved) align();
+      previous = moved ? target.getBoundingClientRect() : current;
+      spyPausedUntil = performance.now() + SPY_PAUSE_MS;
+      if (stableFrames >= 3 || --remainingFrames === 0) cancel();
+      else requestAnimationFrame(settle);
+    };
+    requestAnimationFrame(settle);
   };
 
   function createFileItem(file: PatchFile, index: number, label: string): HTMLElement {
@@ -184,7 +217,7 @@ export function renderSidebar(files: PatchFile[], options: SidebarOptions = {}):
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible.length > 0) setActive(visible[0].target.id);
       },
-      { root: scrollContainer, rootMargin: '0px 0px -70% 0px', threshold: 0 },
+      { root: null, rootMargin: '0px 0px -70% 0px', threshold: 0 },
     );
     for (const section of scrollContainer.querySelectorAll<HTMLElement>('.gpv-file')) {
       observer.observe(section);

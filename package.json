@@ -14,10 +14,12 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:browser": "playwright test",
     "test:watch": "vitest",
     "lint": "eslint \"src/**/*.ts\""
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
     "@types/chrome": "^0.0.268",
     "@types/jsdom": "^28.0.3",
     "@typescript-eslint/eslint-plugin": "^7.16.0",

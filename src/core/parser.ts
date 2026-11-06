@@ -171,6 +171,12 @@ function parseHunks(lines: string[]): Hunk[] {
     }
     if (!current) continue;
 
+    // Once both ranges are consumed, remaining lines may be a mail footer.
+    if (
+      oldNumber >= current.oldStart + current.oldCount &&
+      newNumber >= current.newStart + current.newCount
+    ) continue;
+
     // "\ No newline at end of file" is metadata, not a content line.
     if (line.startsWith('\\')) continue;
 
